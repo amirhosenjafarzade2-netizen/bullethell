@@ -185,7 +185,7 @@
                 { value: 'hypotrochoid', name: 'Hypotrochoid' },
                 { value: 'epitrochoid', name: 'Epitrochoid' },
                 { value: 'clothoid', name: 'Clothoid' },
-                { value: 'spirograph', name: 'Spirograph' } // New spirograph pattern
+                { value: 'spirograph', name: 'Spirograph' } // Ensured spirograph is included
             ],
             dynamic: [
                 { value: 'sine', name: 'Sine Wave' },
@@ -238,12 +238,14 @@
                 functionType = functionSelect.value;
                 resetParticles();
                 updateFunctionText();
+                console.log(`Category changed to ${functionCategory}, Function Type set to ${functionType}`);
             });
 
             functionSelect.addEventListener('change', () => {
                 functionType = functionSelect.value;
                 resetParticles();
                 updateFunctionText();
+                console.log(`Function Type changed to ${functionType}`);
             });
 
             document.getElementById('amplitude').addEventListener('input', () => {
@@ -304,7 +306,9 @@
 
         function updateFunctionOptions() {
             const functionSelect = document.getElementById('functionType');
-            functionSelect.innerHTML = '';
+            functionSelect.innerHTML = ''; // Clear existing options
+            console.log(`Updating function options for category: ${functionCategory}`);
+            console.log(`Available functions: ${functionCategories[functionCategory].map(func => func.name).join(', ')}`);
             functionCategories[functionCategory].forEach(func => {
                 const option = document.createElement('option');
                 option.value = func.value;
@@ -312,6 +316,7 @@
                 functionSelect.appendChild(option);
             });
             functionType = functionSelect.value;
+            console.log(`Function Type set to: ${functionType}`);
         }
 
         function resetParams() {
@@ -417,7 +422,7 @@
                 hypotrochoid: `x = ${amplitude} * (cos(theta) + 0.5 * cos(3 * theta)), y = ${amplitude} * (sin(theta) - 0.5 * sin(3 * theta))`,
                 epitrochoid: `x = ${amplitude} * (cos(theta) - 0.5 * cos(3 * theta)), y = ${amplitude} * (sin(theta) + 0.5 * sin(3 * theta))`,
                 clothoid: `x = ${amplitude} * ∫cos(t^2/2)dt, y = ${amplitude} * ∫sin(t^2/2)dt`,
-                spirograph: `x = ${amplitude} * ((1-0.3)*cos(theta) + 0.3*cos(${symmetry}*theta)), y = ${amplitude} * ((1-0.3)*sin(theta) - 0.3*sin(${symmetry}*theta))`, // New spirograph description
+                spirograph: `x = ${amplitude} * ((1-0.3)*cos(theta) + 0.3*cos(${symmetry}*theta)), y = ${amplitude} * ((1-0.3)*sin(theta) - 0.3*sin(${symmetry}*theta))`,
                 sine: `y = ${amplitude} * sin(${frequency} * x + ${phase})`,
                 cosine: `y = ${amplitude} * cos(${frequency} * x + ${phase})`,
                 waveStack: `y = ${amplitude} * (sin(${frequency} * x + ${phase}) + cos(3 * ${frequency} * x))`,
@@ -572,7 +577,6 @@
                     x = amplitude * integralCos;
                     y = amplitude * integralSin;
                 } else if (functionType === 'spirograph') {
-                    // Spirograph-like pattern: hypotrochoid with adjustable symmetry
                     let t = angle + time;
                     let R = 1; // Fixed outer radius
                     let k = 0.3; // Ratio of inner to outer radius
