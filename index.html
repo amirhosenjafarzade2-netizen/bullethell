@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SHMUP Bullet Hell Simulator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: 'Courier New', monospace;
+            background-color: #1c2526;
+            color: #00ffcc;
+            margin: 0;
+            padding: 20px;
+            overflow: hidden;
+        }
+        canvas {
+            border: 2px solid #00ffcc;
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.5);
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 20px 0;
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.3);
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        label {
+            font-size: 14px;
+            color: #00ffcc;
+        }
+        select, input[type="range"], input[type="checkbox"] {
+            width: 120px;
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid #00ffcc;
+            background-color: #2e3b3e;
+            color: #00ffcc;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #ff007a;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #cc0061;
+        }
+        .value-display {
+            font-size: 12px;
+            color: #00ffcc;
+        }
+        .function-display {
+            margin-top: 20px;
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 800px;
+            text-align: left;
+        }
+        .function-display pre {
+            margin: 0;
+            color: #00ffcc;
+            font-size: 14px;
+        }
+        .function-display button {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <div class="control-group">
+            <label>Mode:</label>
+            <select id="mode">
+                <option value="bullet">Bullet Pattern</option>
+                <option value="enemy">Enemy Pattern</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label>Function Category:</label>
+            <select id="functionCategory">
+                <option value="polar">Polar Patterns</option>
+                <option value="parametric">Parametric Patterns</option>
+                <option value="dynamic">Dynamic Patterns</option>
+                <option value="touhou">Touhou-Inspired Patterns</option>
+                <option value="kaleidoscope">Kaleidoscope Patterns</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label>Function Type:</label>
+            <select id="functionType">
+                <!-- Options populated dynamically -->
+            </select>
+        </div>
+        <div class="control-group">
+            <label>Amplitude: <span class="value-display" id="amplitudeValue">50</span></label>
+            <input type="range" id="amplitude" min="10" max="100" value="50">
+        </div>
+        <div class="control-group">
+            <label>Frequency: <span class="value-display" id="frequencyValue">0.05</span></label>
+            <input type="range" id="frequency" min="0.01" max="0.1" step="0.01" value="0.05">
+        </div>
+        <div class="control-group">
+            <label>Phase: <span class="value-display" id="phaseValue">0</span></label>
+            <input type="range" id="phase" min="0" max="6.28" step="0.1" value="0">
+        </div>
+        <div class="control-group">
+            <label>Rotation Speed: <span class="value-display" id="rotationSpeedValue">0.02</span></label>
+            <input type="range" id="rotationSpeed" min="0" max="0.1" step="0.01" value="0.02">
+        </div>
+        <div class="control-group">
+            <label>Symmetry: <span class="value-display" id="symmetryValue">4</span></label>
+            <input type="range" id="symmetry" min="1" max="8" step="1" value="4">
+        </div>
+        <div class="control-group">
+            <label>Count: <span class="value-display" id="countValue">10</span></label>
+            <input type="range" id="count" min="1" max="50" value="10">
+        </div>
+        <div class="control-group">
+            <label>Reflections: <span class="value-display" id="reflectionsValue">4</span></label>
+            <input type="range" id="reflections" min="2" max="12" step="1" value="4">
+        </div>
+        <div class="control-group">
+            <label>Color Variation:</label>
+            <input type="checkbox" id="colorVariation">
+        </div>
+        <div class="control-group">
+            <label>Show Grid:</label>
+            <input type="checkbox" id="showGrid">
+        </div>
+        <div class="control-group">
+            <button onclick="resetParams()">Reset</button>
+        </div>
+    </div>
+    <div class="function-display">
+        <pre id="functionText"></pre>
+        <button onclick="copyFunction()">Copy Function</button>
+    </div>
+    <script>
+        let mode = 'bullet';
+        let functionCategory = 'polar';
+        let functionType = 'polarRose';
+        let amplitude = 50;
+        let frequency = 0.05;
+        let phase = 0;
+        let rotationSpeed = 0.02;
+        let symmetry = 4;
+        let count = 10;
+        let reflections = 4;
+        let colorVariation = false;
+        let showGrid = false;
+        let particles = [];
+        let player = { x: 0, y: 0 };
+
+        const functionCategories = {
+            polar: [
+                { value: 'polarRose', name: 'Polar Rose' },
+                { value: 'spiral', name: 'Spiral' },
+                { value: 'cardioid', name: 'Cardioid' },
+                { value: 'astroid', name: 'Astroid' },
+                { value: 'lemniscate', name: 'Lemniscate' },
+                { value: 'trifolium', name: 'Trifolium' },
+                { value: 'flower', name: 'Flower' },
+                { value: 'logSpiral', name: 'Logarithmic Spiral' },
+                { value: 'fermatSpiral', name: 'Fermat Spiral' }
+            ],
+            parametric: [
+                { value: 'heart', name: 'Heart' },
+                { value: 'butterfly', name: 'Butterfly Curve' },
+                { value: 'lissajous', name: 'Lissajous Curve' },
+                { value: 'hypotrochoid', name: 'Hypotrochoid' },
+                { value: 'epitrochoid', name: 'Epitrochoid' },
+                { value: 'clothoid', name: 'Clothoid' }
+            ],
+            dynamic: [
+                { value: 'sine', name: 'Sine Wave' },
+                { value: 'cosine', name: 'Cosine Wave' },
+                { value: 'waveStack', name: 'Wave Stack' },
+                { value: 'swirl', name: 'Swirl' },
+                { value: 'vortex', name: 'Vortex' },
+                { value: 'aimedSpread', name: 'Aimed Spread' },
+                { value: 'randomScatter', name: 'Random Scatter' },
+                { value: 'laserBeam', name: 'Laser Beam' },
+                { value: 'curvingPath', name: 'Curving Path' },
+                { value: 'bouncing', name: 'Bouncing' },
+                { value: 'accelerating', name: 'Accelerating' },
+                { value: 'homing', name: 'Homing' }
+            ],
+            touhou: [
+                { value: 'touhouRing', name: 'Touhou Ring' },
+                { value: 'touhouSpiral', name: 'Touhou Spiral' },
+                { value: 'touhouAimedVolley', name: 'Touhou Aimed Volley' },
+                { value: 'touhouCurvingRing', name: 'Touhou Curving Ring' },
+                { value: 'touhouButterfly', name: 'Touhou Butterfly' },
+                { value: 'rabiMiru', name: 'Rabi-Ribi Miru' },
+                { value: 'rabiIrisu', name: 'Rabi-Ribi Irisu' }
+            ],
+            kaleidoscope: [
+                { value: 'kaleidoscopeSymmetry', name: 'Kaleidoscope Symmetry' },
+                { value: 'kaleidoscopeMirror', name: 'Kaleidoscope Mirror' },
+                { value: 'kaleidoscopeFractal', name: 'Kaleidoscope Fractal' },
+                { value: 'kaleidoscopeRadial', name: 'Kaleidoscope Radial' }
+            ]
+        };
+
+        function setup() {
+            createCanvas(800, 600);
+            resetParticles();
+            // Update UI
+            const modeSelect = document.getElementById('mode');
+            const categorySelect = document.getElementById('functionCategory');
+            const functionSelect = document.getElementById('functionType');
+
+            modeSelect.addEventListener('change', () => {
+                mode = modeSelect.value;
+                resetParticles();
+                updateFunctionText();
+            });
+
+            categorySelect.addEventListener('change', () => {
+                functionCategory = categorySelect.value;
+                updateFunctionOptions();
+                functionType = functionSelect.value;
+                resetParticles();
+                updateFunctionText();
+            });
+
+            functionSelect.addEventListener('change', () => {
+                functionType = functionSelect.value;
+                resetParticles();
+                updateFunctionText();
+            });
+
+            document.getElementById('amplitude').addEventListener('input', () => {
+                amplitude = parseFloat(document.getElementById('amplitude').value);
+                document.getElementById('amplitudeValue').textContent = amplitude;
+                updateFunctionText();
+            });
+
+            document.getElementById('frequency').addEventListener('input', () => {
+                frequency = parseFloat(document.getElementById('frequency').value);
+                document.getElementById('frequencyValue').textContent = frequency.toFixed(2);
+                updateFunctionText();
+            });
+
+            document.getElementById('phase').addEventListener('input', () => {
+                phase = parseFloat(document.getElementById('phase').value);
+                document.getElementById('phaseValue').textContent = phase.toFixed(2);
+                updateFunctionText();
+            });
+
+            document.getElementById('rotationSpeed').addEventListener('input', () => {
+                rotationSpeed = parseFloat(document.getElementById('rotationSpeed').value);
+                document.getElementById('rotationSpeedValue').textContent = rotationSpeed.toFixed(2);
+                updateFunctionText();
+            });
+
+            document.getElementById('symmetry').addEventListener('input', () => {
+                symmetry = parseInt(document.getElementById('symmetry').value);
+                document.getElementById('symmetryValue').textContent = symmetry;
+                resetParticles();
+                updateFunctionText();
+            });
+
+            document.getElementById('count').addEventListener('input', () => {
+                count = parseInt(document.getElementById('count').value);
+                document.getElementById('countValue').textContent = count;
+                resetParticles();
+            });
+
+            document.getElementById('reflections').addEventListener('input', () => {
+                reflections = parseInt(document.getElementById('reflections').value);
+                document.getElementById('reflectionsValue').textContent = reflections;
+                resetParticles();
+                updateFunctionText();
+            });
+
+            document.getElementById('colorVariation').addEventListener('change', () => {
+                colorVariation = document.getElementById('colorVariation').checked;
+            });
+
+            document.getElementById('showGrid').addEventListener('change', () => {
+                showGrid = document.getElementById('showGrid').checked;
+            });
+
+            updateFunctionOptions();
+            updateFunctionText();
+        }
+
+        function updateFunctionOptions() {
+            const functionSelect = document.getElementById('functionType');
+            functionSelect.innerHTML = '';
+            functionCategories[functionCategory].forEach(func => {
+                const option = document.createElement('option');
+                option.value = func.value;
+                option.textContent = func.name;
+                functionSelect.appendChild(option);
+            });
+            functionType = functionSelect.value;
+        }
+
+        function resetParams() {
+            amplitude = 50;
+            frequency = 0.05;
+            phase = 0;
+            rotationSpeed = 0.02;
+            symmetry = 4;
+            count = 10;
+            reflections = 4;
+            colorVariation = false;
+            showGrid = false;
+
+            document.getElementById('amplitude').value = amplitude;
+            document.getElementById('amplitudeValue').textContent = amplitude;
+            document.getElementById('frequency').value = frequency;
+            document.getElementById('frequencyValue').textContent = frequency.toFixed(2);
+            document.getElementById('phase').value = phase;
+            document.getElementById('phaseValue').textContent = phase.toFixed(2);
+            document.getElementById('rotationSpeed').value = rotationSpeed;
+            document.getElementById('rotationSpeedValue').textContent = rotationSpeed.toFixed(2);
+            document.getElementById('symmetry').value = symmetry;
+            document.getElementById('symmetryValue').textContent = symmetry;
+            document.getElementById('count').value = count;
+            document.getElementById('countValue').textContent = count;
+            document.getElementById('reflections').value = reflections;
+            document.getElementById('reflectionsValue').textContent = reflections;
+            document.getElementById('colorVariation').checked = colorVariation;
+            document.getElementById('showGrid').checked = showGrid;
+
+            resetParticles();
+            updateFunctionText();
+        }
+
+        function resetParticles() {
+            particles = [];
+            if (mode === 'bullet') {
+                for (let i = 0; i < count; i++) {
+                    let angle = (i / count) * TWO_PI;
+                    let particle = { angle, radius: 0, speed: 2, index: i };
+                    if (['bouncing', 'homing', 'randomScatter', 'laserBeam'].includes(functionType)) {
+                        particle.vx = 0;
+                        particle.vy = 0;
+                        particle.x = random(-width / 2, width / 2);
+                        particle.y = random(-height / 2, height / 2);
+                    }
+                    if (functionType === 'accelerating') {
+                        particle.acceleration = 0.01;
+                    }
+                    if (['aimedSpread', 'touhouAimedVolley'].includes(functionType)) {
+                        particle.x = 0;
+                        particle.y = 0;
+                    }
+                    if (functionCategory === 'kaleidoscope') {
+                        particle.mirrorAngle = angle;
+                    }
+                    particles.push(particle);
+                }
+            } else {
+                for (let i = 0; i < count; i++) {
+                    let angle = (i / count) * TWO_PI;
+                    let particle = { angle, radius: random(50, 200), speed: random(0.5, 2), index: i };
+                    if (['bouncing', 'homing', 'randomScatter', 'laserBeam'].includes(functionType)) {
+                        particle.vx = 0;
+                        particle.vy = 0;
+                        particle.x = random(-width / 2, width / 2);
+                        particle.y = random(-height / 2, height / 2);
+                    }
+                    if (functionType === 'accelerating') {
+                        particle.acceleration = 0.01;
+                    }
+                    if (['aimedSpread', 'touhouAimedVolley'].includes(functionType)) {
+                        particle.x = 0;
+                        particle.y = 0;
+                    }
+                    if (functionCategory === 'kaleidoscope') {
+                        particle.mirrorAngle = angle;
+                    }
+                    particles.push(particle);
+                }
+            }
+        }
+
+        function updateFunctionText() {
+            let text = '';
+            const descriptions = {
+                polarRose: `r = ${amplitude} * sin(${symmetry} * theta + ${phase})`,
+                spiral: `r = ${amplitude} * (theta + ${phase})`,
+                cardioid: `r = ${amplitude} * (1 + cos(theta))`,
+                astroid: `r = ${amplitude} * cos^3(theta)`,
+                lemniscate: `r = ${amplitude} * sqrt(abs(cos(2 * theta + ${phase})))`,
+                trifolium: `r = ${amplitude} * cos(3 * theta)`,
+                flower: `r = ${amplitude} * cos(${symmetry} * theta)`,
+                logSpiral: `r = ${amplitude} * e^(0.1 * theta)`,
+                fermatSpiral: `r = ${amplitude} * sqrt(theta)`,
+                kaleidoscopeSymmetry: `r = ${amplitude} * abs(sin(${symmetry} * theta + ${phase}) * cos(${reflections} * theta))`,
+                kaleidoscopeMirror: `r = ${amplitude} * abs(sin(${symmetry} * theta + ${phase})) / (1 + cos(${reflections} * theta))`,
+                kaleidoscopeFractal: `r = ${amplitude} * (sin(${symmetry} * theta + ${phase}) + 0.5 * sin(${reflections} * theta / 2))`,
+                kaleidoscopeRadial: `r = ${amplitude} * abs(cos(${symmetry} * theta + ${phase}) * sin(${reflections} * theta))`,
+                heart: `(x^2 + y^2 - 1)^3 - x^2 * y^3 = 0 (scaled by ${amplitude})`,
+                butterfly: `r = ${amplitude} * (sin(theta) * (e^cos(theta) - 2 * cos(4 * theta) + sin^5(theta/12)))`,
+                lissajous: `x = ${amplitude} * sin(3 * theta + ${phase}), y = ${amplitude} * sin(2 * theta)`,
+                hypotrochoid: `x = ${amplitude} * (cos(theta) + 0.5 * cos(3 * theta)), y = ${amplitude} * (sin(theta) - 0.5 * sin(3 * theta))`,
+                epitrochoid: `x = ${amplitude} * (cos(theta) - 0.5 * cos(3 * theta)), y = ${amplitude} * (sin(theta) + 0.5 * sin(3 * theta))`,
+                clothoid: `x = ${amplitude} * ∫cos(t^2/2)dt, y = ${amplitude} * ∫sin(t^2/2)dt`,
+                sine: `y = ${amplitude} * sin(${frequency} * x + ${phase})`,
+                cosine: `y = ${amplitude} * cos(${frequency} * x + ${phase})`,
+                waveStack: `y = ${amplitude} * (sin(${frequency} * x + ${phase}) + cos(3 * ${frequency} * x))`,
+                swirl: `r = ${amplitude} * theta * sin(${symmetry} * theta)`,
+                vortex: `r = ${amplitude} / (abs(theta) + 0.1)`,
+                aimedSpread: `θ = aim + [-π/6, π/6]`,
+                randomScatter: `x, y = random within ${amplitude}`,
+                laserBeam: `y = linear path`,
+                curvingPath: `θ += angular velocity`,
+                bouncing: `Reflect off walls`,
+                accelerating: `speed += acceleration`,
+                homing: `Aim towards player`,
+                touhouRing: `r = ${amplitude}, θ = evenly spaced`,
+                touhouSpiral: `r = ${amplitude} * (theta / 2π)`,
+                touhouAimedVolley: `θ = aim + [-π/6, π/6]`,
+                touhouCurvingRing: `r = ${amplitude}, θ += angular velocity`,
+                touhouButterfly: `r = ${amplitude} * (1 + 0.5 * sin(4 * theta))`,
+                rabiMiru: `y = ${amplitude} * (sin(${frequency} * x) + cos(3 * ${frequency} * x))`,
+                rabiIrisu: `r = ${amplitude} * e^(0.1 * theta) * sin(${symmetry} * theta)`
+            };
+
+            text = mode === 'bullet' ? descriptions[functionType] || 'Unknown function' : `Enemy Path: ${descriptions[functionType] || 'Unknown function'}`;
+            text += `\nRotation Speed: ${rotationSpeed}`;
+            if (functionCategory === 'kaleidoscope') {
+                text += `\nReflections: ${reflections}`;
+            }
+            document.getElementById('functionText').textContent = text;
+        }
+
+        function copyFunction() {
+            const text = document.getElementById('functionText').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Function copied to clipboard!');
+            }).catch(err => {
+                alert('Failed to copy function: ' + err);
+            });
+        }
+
+        function draw() {
+            background(28, 37, 38);
+            translate(width / 2, height / 2);
+
+            // Update player position based on mouse
+            player.x = mouseX - width / 2;
+            player.y = mouseY - height / 2;
+
+            // Draw grid
+            if (showGrid) {
+                stroke(0, 50, 50);
+                for (let x = -width / 2; x < width / 2; x += 50) {
+                    line(x, -height / 2, x, height / 2);
+                }
+                for (let y = -height / 2; y < height / 2; y += 50) {
+                    line(-width / 2, y, width / 2, y);
+                }
+            }
+
+            // Draw player
+            fill(255, 255, 0);
+            noStroke();
+            ellipse(player.x, player.y, 10, 10);
+
+            // Update and draw particles
+            let time = frameCount * rotationSpeed;
+            for (let particle of particles) {
+                let x, y, r;
+                let angle = particle.angle;
+                if (functionCategory === 'kaleidoscope') {
+                    angle = (particle.mirrorAngle % (TWO_PI / reflections)) * reflections;
+                }
+
+                if (functionType === 'polarRose') {
+                    r = amplitude * sin(symmetry * angle + phase + time);
+                    x = r * cos(angle);
+                    y = r * sin(angle);
+                } else if (functionType === 'spiral') {
+                    r = amplitude * (angle + time + phase);
+                    x = r * cos(angle);
+                    y = r * sin(angle);
+                } else if (functionType === 'cardioid') {
+                    r = amplitude * (1 + cos(angle + time));
+                    x = r * cos(angle);
+                    y = r * sin(angle);
+                } else if (functionType === 'astroid') {
+                    r = amplitude * pow(cos(angle + time), 3);
+                    x = r * cos(angle);
+                    y = r * sin(angle);
+                } else if (functionType === 'lemniscate') {
+                    let c = cos(2 * angle + phase + time);
+                    r = c > 0 ? amplitude * sqrt(c) : 0;
+                    x = r * cos(angle);
+                    y = r * sin(angle);
+                } else if (functionType === 'trifolium') {
+                    r = amplitude * cos(3 * (angle + time));
+                    x = r * cos(angle);
+                    y = r * sin(angle);
+                } else if (functionType === 'flower') {
+                    r = amplitude * cos(symmetry * (angle + time));
+                    x = r * cos(angle);
+                    y = r * sin(angle);
+                } else if (functionType === 'logSpiral') {
+                    r = amplitude * exp(0.1 * (angle + time));
+                    x = r * cos(angle);
+                    y = r * sin(angle);
+                } else if (functionType === 'fermatSpiral') {
+                    r = amplitude * sqrt(angle + time);
+                    x = r * cos(angle);
+                    y = r * sin(angle);
+                } else if (functionType === 'kaleidoscopeSymmetry') {
+                    r = amplitude * abs(sin(symmetry * angle + phase + time) * cos(reflections * angle));
+                    x = r * cos(angle);
+                    y = r * sin(angle);
+                } else if (functionType === 'kaleidoscopeMirror') {
+                    r = amplitude * abs(sin(symmetry * angle + phase + time)) / (1 + cos(reflections * angle));
+                    x = r * cos(angle);
+                    y = r * sin(angle);
+                } else if (functionType === 'kaleidoscopeFractal') {
+                    r = amplitude * (sin(symmetry * angle + phase + time) + 0.5 * sin(reflections * angle / 2));
+                    x = r * cos(angle);
+                    y = r * sin(angle);
+                } else if (functionType === 'kaleidoscopeRadial') {
+                    r = amplitude * abs(cos(symmetry * angle + phase + time) * sin(reflections * angle));
+                    x = r * cos(angle);
+                    y = r * sin(angle);
+                } else if (functionType === 'heart') {
+                    let t = angle + time;
+                    r = amplitude * sin(t) ** 3;
+                    x = 16 * r * sin(t) ** 3;
+                    y = 13 * r * cos(t) - 5 * r * cos(2 * t) - 2 * r * cos(3 * t) - r * cos(4 * t);
+                } else if (functionType === 'butterfly') {
+                    r = amplitude * (sin(angle + time) * (exp(cos(angle + time)) - 2 * cos(4 * (angle + time)) + pow(sin((angle + time) / 12), 5)));
+                    x = r * cos(angle);
+                    y = r * sin(angle);
+                } else if (functionType === 'lissajous') {
+                    x = amplitude * sin(3 * (angle + time) + phase);
+                    y = amplitude * sin(2 * (angle + time));
+                } else if (functionType === 'hypotrochoid') {
+                    x = amplitude * (cos(angle + time) + 0.5 * cos(3 * (angle + time)));
+                    y = amplitude * (sin(angle + time) - 0.5 * sin(3 * (angle + time)));
+                } else if (functionType === 'epitrochoid') {
+                    x = amplitude * (cos(angle + time) - 0.5 * cos(3 * (angle + time)));
+                    y = amplitude * (sin(angle + time) + 0.5 * sin(3 * (angle + time)));
+                } else if (functionType === 'clothoid') {
+                    let integralCos = 0, integralSin = 0;
+                    let steps = 50;
+                    let dt = (angle + time) / steps;
+                    for (let i = 0; i <= steps; i++) {
+                        let s = i * dt;
+                        integralCos += cos(s * s / 2) * dt;
+                        integralSin += sin(s * s / 2) * dt;
+                    }
+                    x = amplitude * integralCos;
+                    y = amplitude * integralSin;
+                } else if (functionType === 'sine') {
+                    x = particle.radius * cos(angle);
+                    y = amplitude * sin(frequency * x + phase + time);
+                } else if (functionType === 'cosine') {
+                    x = particle.radius * cos(angle);
+                    y = amplitude * cos(frequency * x + phase + time);
+                } else if (functionType === 'waveStack') {
+                    x = particle.radius * cos(angle);
+                    y = amplitude * (sin(frequency * x + phase + time) + cos(3 * frequency * x));
+                } else if (functionType === 'swirl') {
+                    r = amplitude * (angle + time) * sin(symmetry * (angle + time));
+                    x = r * cos(angle);
+                    y = r * sin(angle);
+                } else if (functionType === 'vortex') {
+                    r = amplitude / (abs(angle + time) + 0.1);
+                    x = r * cos(angle);
+                    y = r * sin(angle);
+                } else if (functionType === 'aimedSpread') {
+                    let aimAngle = atan2(player.y - particle.y, player.x - particle.x);
+                    particle.angle = aimAngle + random(-PI / 6, PI / 6);
+                    x = particle.x = particle.radius * cos(particle.angle);
+                    y = particle.y = particle.radius * sin(particle.angle);
+                } else if (functionType === 'randomScatter') {
+                    x = particle.x = random(-amplitude, amplitude);
+                    y = particle.y = random(-amplitude, amplitude);
+                } else if (functionType === 'laserBeam') {
+                    x = particle.x = particle.radius * cos(particle.angle);
+                    y = particle.y = particle.radius * sin(particle.angle);
+                } else if (functionType === 'curvingPath') {
+                    particle.angle += rotationSpeed;
+                    x = particle.x = particle.radius * cos(particle.angle);
+                    y = particle.y = particle.radius * sin(particle.angle);
+                } else if (functionType === 'bouncing') {
+                    particle.x += particle.vx;
+                    particle.y += particle.vy;
+                    if (abs(particle.x) > width / 2) particle.vx *= -1;
+                    if (abs(particle.y) > height / 2) particle.vy *= -1;
+                    x = particle.x;
+                    y = particle.y;
+                } else if (functionType === 'accelerating') {
+                    particle.speed += particle.acceleration || 0.01;
+                    particle.radius += particle.speed;
+                    x = particle.x = particle.radius * cos(particle.angle);
+                    y = particle.y = particle.radius * sin(particle.angle);
+                } else if (functionType === 'homing') {
+                    let aimAngle = atan2(player.y - particle.y, player.x - particle.x);
+                    particle.vx += 0.05 * cos(aimAngle);
+                    particle.vy += 0.05 * sin(aimAngle);
+                    particle.x += particle.vx;
+                    particle.y += particle.vy;
+                    x = particle.x;
+                    y = particle.y;
+                } else if (functionType === 'touhouRing') {
+                    r = amplitude;
+                    x = r * cos(angle + time);
+                    y = r * sin(angle + time);
+                } else if (functionType === 'touhouSpiral') {
+                    r = amplitude * ((angle + time) / TWO_PI);
+                    x = r * cos(angle);
+                    y = r * sin(angle);
+                } else if (functionType === 'touhouAimedVolley') {
+                    let aimAngle = atan2(player.y, player.x);
+                    particle.angle = aimAngle + map(particle.index, 0, count - 1, -PI / 6, PI / 6);
+                    x = particle.x = particle.radius * cos(particle.angle);
+                    y = particle.y = particle.radius * sin(particle.angle);
+                } else if (functionType === 'touhouCurvingRing') {
+                    r = amplitude;
+                    particle.angle += rotationSpeed;
+                    x = r * cos(particle.angle);
+                    y = r * sin(particle.angle);
+                } else if (functionType === 'touhouButterfly') {
+                    r = amplitude * (1 + 0.5 * sin(4 * (angle + time)));
+                    x = r * cos(angle);
+                    y = r * sin(angle);
+                } else if (functionType === 'rabiMiru') {
+                    x = particle.radius * cos(angle);
+                    y = amplitude * (sin(frequency * x + phase + time) + cos(3 * frequency * x));
+                } else if (functionType === 'rabiIrisu') {
+                    r = amplitude * exp(0.1 * (angle + time)) * sin(symmetry * (angle + time));
+                    x = r * cos(angle);
+                    y = r * sin(angle);
+                }
+
+                // Update particle
+                if (mode === 'bullet') {
+                    if (!['bouncing', 'homing', 'aimedSpread', 'randomScatter', 'laserBeam', 'curvingPath', 'accelerating', 'touhouAimedVolley'].includes(functionType)) {
+                        particle.radius += particle.speed;
+                        if (particle.radius > width / 2) particle.radius = 0; // Reset bullet
+                    } else {
+                        particle.radius += particle.speed;
+                        if (abs(particle.x) > width / 2 || abs(particle.y) > height / 2) {
+                            particle.radius = 0;
+                            particle.x = 0;
+                            particle.y = 0;
+                            if (functionType === 'bouncing') {
+                                particle.vx = random(-2, 2);
+                                particle.vy = random(-2, 2);
+                            }
+                        }
+                    }
+                } else {
+                    if (!['bouncing', 'homing', 'aimedSpread', 'randomScatter', 'laserBeam', 'curvingPath', 'accelerating', 'touhouAimedVolley'].includes(functionType)) {
+                        particle.angle += rotationSpeed;
+                        if (functionCategory === 'kaleidoscope') {
+                            particle.mirrorAngle += rotationSpeed;
+                        }
+                    }
+                }
+
+                // Draw particle with optional color variation
+                if (mode === 'bullet') {
+                    if (colorVariation) {
+                        let hue = (particle.index / count) * 360;
+                        fill(hue, 255, 255);
+                    } else {
+                        fill(255, 0, 120);
+                    }
+                    noStroke();
+                    ellipse(x, y, 5, 5);
+                } else {
+                    if (colorVariation) {
+                        let hue = (particle.index / count) * 360;
+                        fill(hue, 255, 255);
+                    } else {
+                        fill(0, 255, 204);
+                    }
+                    stroke(255);
+                    ellipse(x, y, 10, 10);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
