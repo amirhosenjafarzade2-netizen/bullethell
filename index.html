@@ -98,6 +98,7 @@
                 <option value="dynamic">Dynamic Patterns</option>
                 <option value="touhou">Touhou-Inspired Patterns</option>
                 <option value="kaleidoscope">Kaleidoscope Patterns</option>
+                <option value="spirograph">Spirograph Patterns</option>
             </select>
         </div>
         <div class="control-group">
@@ -184,8 +185,7 @@
                 { value: 'lissajous', name: 'Lissajous Curve' },
                 { value: 'hypotrochoid', name: 'Hypotrochoid' },
                 { value: 'epitrochoid', name: 'Epitrochoid' },
-                { value: 'clothoid', name: 'Clothoid' },
-                { value: 'spirograph', name: 'Spirograph' } // Ensured spirograph is included
+                { value: 'clothoid', name: 'Clothoid' }
             ],
             dynamic: [
                 { value: 'sine', name: 'Sine Wave' },
@@ -215,6 +215,11 @@
                 { value: 'kaleidoscopeMirror', name: 'Kaleidoscope Mirror' },
                 { value: 'kaleidoscopeFractal', name: 'Kaleidoscope Fractal' },
                 { value: 'kaleidoscopeRadial', name: 'Kaleidoscope Radial' }
+            ],
+            spirograph: [
+                { value: 'spiroHypotrochoid', name: 'Spirograph Hypotrochoid' },
+                { value: 'spiroEpitrochoid', name: 'Spirograph Epitrochoid' },
+                { value: 'spiroCycloid', name: 'Spirograph Cycloid' }
             ]
         };
 
@@ -238,14 +243,12 @@
                 functionType = functionSelect.value;
                 resetParticles();
                 updateFunctionText();
-                console.log(`Category changed to ${functionCategory}, Function Type set to ${functionType}`);
             });
 
             functionSelect.addEventListener('change', () => {
                 functionType = functionSelect.value;
                 resetParticles();
                 updateFunctionText();
-                console.log(`Function Type changed to ${functionType}`);
             });
 
             document.getElementById('amplitude').addEventListener('input', () => {
@@ -306,9 +309,7 @@
 
         function updateFunctionOptions() {
             const functionSelect = document.getElementById('functionType');
-            functionSelect.innerHTML = ''; // Clear existing options
-            console.log(`Updating function options for category: ${functionCategory}`);
-            console.log(`Available functions: ${functionCategories[functionCategory].map(func => func.name).join(', ')}`);
+            functionSelect.innerHTML = '';
             functionCategories[functionCategory].forEach(func => {
                 const option = document.createElement('option');
                 option.value = func.value;
@@ -316,7 +317,6 @@
                 functionSelect.appendChild(option);
             });
             functionType = functionSelect.value;
-            console.log(`Function Type set to: ${functionType}`);
         }
 
         function resetParams() {
@@ -422,7 +422,6 @@
                 hypotrochoid: `x = ${amplitude} * (cos(theta) + 0.5 * cos(3 * theta)), y = ${amplitude} * (sin(theta) - 0.5 * sin(3 * theta))`,
                 epitrochoid: `x = ${amplitude} * (cos(theta) - 0.5 * cos(3 * theta)), y = ${amplitude} * (sin(theta) + 0.5 * sin(3 * theta))`,
                 clothoid: `x = ${amplitude} * ∫cos(t^2/2)dt, y = ${amplitude} * ∫sin(t^2/2)dt`,
-                spirograph: `x = ${amplitude} * ((1-0.3)*cos(theta) + 0.3*cos(${symmetry}*theta)), y = ${amplitude} * ((1-0.3)*sin(theta) - 0.3*sin(${symmetry}*theta))`,
                 sine: `y = ${amplitude} * sin(${frequency} * x + ${phase})`,
                 cosine: `y = ${amplitude} * cos(${frequency} * x + ${phase})`,
                 waveStack: `y = ${amplitude} * (sin(${frequency} * x + ${phase}) + cos(3 * ${frequency} * x))`,
@@ -441,12 +440,15 @@
                 touhouCurvingRing: `r = ${amplitude}, θ += angular velocity`,
                 touhouButterfly: `r = ${amplitude} * (1 + 0.5 * sin(4 * theta))`,
                 rabiMiru: `y = ${amplitude} * (sin(${frequency} * x) + cos(3 * ${frequency} * x))`,
-                rabiIrisu: `r = ${amplitude} * e^(0.1 * theta) * sin(${symmetry} * theta)`
+                rabiIrisu: `r = ${amplitude} * e^(0.1 * theta) * sin(${symmetry} * theta)`,
+                spiroHypotrochoid: `x = ${amplitude} * ((1-0.3) * cos(theta) + 0.3 * cos((1/0.3-1) * theta)), y = ${amplitude} * ((1-0.3) * sin(theta) - 0.3 * sin((1/0.3-1) * theta))`,
+                spiroEpitrochoid: `x = ${amplitude} * ((1+0.3) * cos(theta) - 0.3 * cos((1/0.3+1) * theta)), y = ${amplitude} * ((1+0.3) * sin(theta) + 0.3 * sin((1/0.3+1) * theta))`,
+                spiroCycloid: `x = ${amplitude} * (cos(theta) - 0.2 * cos(symmetry * theta)), y = ${amplitude} * (sin(theta) - 0.2 * sin(symmetry * theta))`
             };
 
             text = mode === 'bullet' ? descriptions[functionType] || 'Unknown function' : `Enemy Path: ${descriptions[functionType] || 'Unknown function'}`;
             text += `\nRotation Speed: ${rotationSpeed}`;
-            if (functionCategory === 'kaleidoscope') {
+            if (functionCategory === 'kaleidoscope' || functionCategory === 'spirograph') {
                 text += `\nReflections: ${reflections}`;
             }
             document.getElementById('functionText').textContent = text;
@@ -576,12 +578,6 @@
                     }
                     x = amplitude * integralCos;
                     y = amplitude * integralSin;
-                } else if (functionType === 'spirograph') {
-                    let t = angle + time;
-                    let R = 1; // Fixed outer radius
-                    let k = 0.3; // Ratio of inner to outer radius
-                    x = amplitude * ((1 - k) * cos(t) + k * cos(symmetry * t));
-                    y = amplitude * ((1 - k) * sin(t) - k * sin(symmetry * t));
                 } else if (functionType === 'sine') {
                     x = particle.radius * cos(angle);
                     y = amplitude * sin(frequency * x + phase + time);
@@ -663,6 +659,17 @@
                     r = amplitude * exp(0.1 * (angle + time)) * sin(symmetry * (angle + time));
                     x = r * cos(angle);
                     y = r * sin(angle);
+                } else if (functionType === 'spiroHypotrochoid') {
+                    let R = 1, r = 0.3, d = 0.3;
+                    x = amplitude * ((R - r) * cos(angle + time) + d * cos((R / r - 1) * (angle + time)));
+                    y = amplitude * ((R - r) * sin(angle + time) - d * sin((R / r - 1) * (angle + time)));
+                } else if (functionType === 'spiroEpitrochoid') {
+                    let R = 1, r = 0.3, d = 0.3;
+                    x = amplitude * ((R + r) * cos(angle + time) - d * cos((R / r + 1) * (angle + time)));
+                    y = amplitude * ((R + r) * sin(angle + time) + d * sin((R / r + 1) * (angle + time)));
+                } else if (functionType === 'spiroCycloid') {
+                    x = amplitude * (cos(angle + time) - 0.2 * cos(symmetry * (angle + time)));
+                    y = amplitude * (sin(angle + time) - 0.2 * sin(symmetry * (angle + time)));
                 }
 
                 // Update particle
